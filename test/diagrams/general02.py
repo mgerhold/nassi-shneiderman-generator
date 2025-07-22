@@ -63,7 +63,7 @@ diagram: Final = Diagram(
                 ),
             ),
             Branch(
-                "Bla",
+                "Blubb",
                 PostTestedIteration(
                     r"$\texttt{n} < 10$",
                     Serial(

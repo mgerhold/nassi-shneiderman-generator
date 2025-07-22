@@ -21,6 +21,18 @@ def find_and_evaluate_diagrams(folder_path: str) -> None:
 
     for py_file in py_files:
         try:
+            tex_file = py_file.with_suffix(".tex")
+            pdf_file = tex_file.with_suffix(".pdf")
+
+            py_mtime = py_file.stat().st_mtime
+            tex_mtime = tex_file.stat().st_mtime if tex_file.exists() else 0
+            pdf_mtime = pdf_file.stat().st_mtime if pdf_file.exists() else 0
+
+            # Skip processing if .py file is older than both .tex and .pdf
+            if py_mtime <= max(tex_mtime, pdf_mtime):
+                # Skipping file (no changes detected)
+                continue
+
             namespace = {}
 
             with open(py_file, "r", encoding="utf-8") as f:
@@ -36,13 +48,13 @@ def find_and_evaluate_diagrams(folder_path: str) -> None:
                     f"'diagram' object in '{py_file.name}' does not have an 'emit' method"
                 )
 
-            new_filename = py_file.with_suffix(".tex")
             tex_body = diagram.emit()
-            new_filename.write_text(tex_body, encoding="utf-8")
-            print(f"Processed '{py_file.name}' and saved to '{new_filename}'")
-            pdf_filename = new_filename.with_suffix(".pdf")
-            render_latex_to_pdf(tex_body, pdf_filename)
-            print(f"Rendered PDF for '{py_file.name}' to '{pdf_filename}'")
+            tex_file.write_text(tex_body, encoding="utf-8")
+            print(f"Processed '{py_file.name}' and saved to '{tex_file.name}'")
+
+            render_latex_to_pdf(tex_body, pdf_file)
+            print(f"Rendered PDF for '{py_file.name}' to '{pdf_file.name}'")
+
         except Exception as e:
             print(f"Error processing '{py_file.name}': {e}", file=sys.stderr)
             continue
