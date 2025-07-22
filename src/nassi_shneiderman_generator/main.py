@@ -4,16 +4,14 @@ import sys
 from pathlib import Path
 
 
-def find_and_evaluate_diagrams(folder_path: str) -> None:
-    folder = Path(folder_path)
-
-    if not folder.exists():
+def find_and_evaluate_diagrams(folder_path: Path) -> None:
+    if not folder_path.exists():
         raise FileNotFoundError(f"Error '{folder_path}' does not exist")
 
-    if not folder.is_dir():
+    if not folder_path.is_dir():
         raise NotADirectoryError(f"'{folder_path}' is not a directory")
 
-    py_files = list(folder.glob("*.py"))
+    py_files = list(folder_path.glob("*.py"))
 
     if not py_files:
         print(f"No Python files found in '{folder_path}'", file=sys.stderr)
@@ -60,17 +58,19 @@ def find_and_evaluate_diagrams(folder_path: str) -> None:
             continue
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("folder", help="Path to the folder containing .py files")
-
-    args = parser.parse_args()
-
+def generate_diagrams(folder_path: Path) -> None:
     try:
-        find_and_evaluate_diagrams(args.folder)
+        find_and_evaluate_diagrams(folder_path)
     except (FileNotFoundError, NotADirectoryError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("folder", help="Path to the folder containing .py files")
+    args = parser.parse_args()
+    generate_diagrams(Path(args.folder))
 
 
 if __name__ == "__main__":
