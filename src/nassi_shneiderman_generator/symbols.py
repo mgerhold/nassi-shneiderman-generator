@@ -139,14 +139,22 @@ class Serial(Symbol):
 
     @override
     def emit(self, position: tuple[float, float], size: tuple[float, float]) -> str:
+        additional_height_per_element: Final = max(
+            0.0,
+            (size[1] - self.required_size[1]) / len(self._elements),
+        )
         output = ""
-        element_size: Final = size[0], size[1] / len(self._elements)
         current_position = position
         for element in self._elements:
-            output += element.emit(current_position, element_size)
+            required_element_size = element.required_size
+            actual_element_size = (
+                size[0],
+                required_element_size[1] + additional_height_per_element,
+            )
+            output += element.emit(current_position, actual_element_size)
             current_position = (
                 current_position[0],
-                current_position[1] - element_size[1],
+                current_position[1] - actual_element_size[1]
             )
         return output
 
@@ -154,12 +162,12 @@ class Serial(Symbol):
     @property
     def required_size(self) -> tuple[float, float]:
         max_width = 0.0
-        max_height = 0.0
+        total_height = 0.0
         for element in self._elements:
             element_size = element.required_size
             max_width = max(max_width, element_size[0])
-            max_height = max(max_height, element_size[1])
-        return max_width, max_height * len(self._elements)
+            total_height += element_size[1]
+        return max_width, total_height
 
 
 @final
