@@ -23,7 +23,7 @@ def python_file_to_latex(py_file: Path) -> str:
     return diagram.emit()
 
 
-def find_and_evaluate_diagrams(folder_path: Path) -> None:
+def find_and_evaluate_diagrams(folder_path: Path, force_recreate: bool) -> None:
     if not folder_path.exists():
         raise FileNotFoundError(f"Error '{folder_path}' does not exist")
 
@@ -41,14 +41,14 @@ def find_and_evaluate_diagrams(folder_path: Path) -> None:
             tex_file = py_file.with_suffix(".tex")
             pdf_file = tex_file.with_suffix(".pdf")
 
-            py_mtime = py_file.stat().st_mtime
-            tex_mtime = tex_file.stat().st_mtime if tex_file.exists() else 0
-            pdf_mtime = pdf_file.stat().st_mtime if pdf_file.exists() else 0
+            if not force_recreate:
+                py_mtime = py_file.stat().st_mtime
+                tex_mtime = tex_file.stat().st_mtime if tex_file.exists() else 0
+                pdf_mtime = pdf_file.stat().st_mtime if pdf_file.exists() else 0
 
-            # Skip processing if .py file is older than both .tex and .pdf
-            if py_mtime <= max(tex_mtime, pdf_mtime):
-                # Skipping file (no changes detected)
-                continue
+                # Skip processing if .py file is older than both .tex and .pdf
+                if py_mtime <= max(tex_mtime, pdf_mtime):
+                    continue
 
             tex_body = python_file_to_latex(py_file)
 
@@ -63,9 +63,9 @@ def find_and_evaluate_diagrams(folder_path: Path) -> None:
             continue
 
 
-def generate_diagrams(folder_path: Path) -> None:
+def generate_diagrams(folder_path: Path, force_recreate: bool) -> None:
     try:
-        find_and_evaluate_diagrams(folder_path)
+        find_and_evaluate_diagrams(folder_path, force_recreate)
     except (FileNotFoundError, NotADirectoryError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
@@ -74,8 +74,13 @@ def generate_diagrams(folder_path: Path) -> None:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("folder", help="Path to the folder containing .py files")
+    parser.add_argument(
+        "--force-recreate",
+        action="store_true",
+        help="Force regeneration of all .tex and .pdf files"
+    )
     args = parser.parse_args()
-    generate_diagrams(Path(args.folder))
+    generate_diagrams(Path(args.folder), args.force_recreate)
 
 
 if __name__ == "__main__":
