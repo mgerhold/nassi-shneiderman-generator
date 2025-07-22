@@ -1,3 +1,4 @@
+from functools import cache
 from typing import Final
 import subprocess
 import tempfile
@@ -5,8 +6,11 @@ import re
 from pathlib import Path
 import cv2
 
+from dimensions import Dimensions
 
-def measure_latex_dimensions(latex_code: str) -> tuple[float, float]:
+
+@cache
+def measure_latex_dimensions(latex_code: str) -> Dimensions:
     file_contents: Final = rf"""\documentclass{{article}}
     \usepackage[margin=0pt,paperwidth=50cm,paperheight=50cm]{{geometry}}
     \usepackage{{calc}}
@@ -40,8 +44,11 @@ def measure_latex_dimensions(latex_code: str) -> tuple[float, float]:
                 width = float(match.group(1))
                 height = float(match.group(2))
                 depth = float(match.group(3))
-                total_height = height + depth
-                return width, total_height
+                return Dimensions(
+                    width=width,
+                    height=height,
+                    depth=depth,
+                )
             raise RuntimeError("Failed to extract dimensions from LaTeX output.")
         except subprocess.TimeoutExpired:
             raise RuntimeError("pdflatex timed out")
@@ -92,16 +99,16 @@ def render_latex_and_show(latex_body: str):
             print("LaTeX compilation failed.")
             return
 
-        try:
-            subprocess.run(
-                ["pdfcrop", str(pdf_file), str(pdf_file)],
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except subprocess.CalledProcessError:
-            print("PDF cropping failed.")
-            return
+        # try:
+        #     subprocess.run(
+        #         ["pdfcrop", str(pdf_file), str(pdf_file)],
+        #         check=True,
+        #         stdout=subprocess.DEVNULL,
+        #         stderr=subprocess.DEVNULL,
+        #     )
+        # except subprocess.CalledProcessError:
+        #     print("PDF cropping failed.")
+        #     return
 
         # Convert PDF to PNG
         try:
