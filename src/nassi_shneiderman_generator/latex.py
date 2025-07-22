@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 import cv2
 
-from dimensions import Dimensions
+from nassi_shneiderman_generator.dimensions import Dimensions
 
 
 @cache

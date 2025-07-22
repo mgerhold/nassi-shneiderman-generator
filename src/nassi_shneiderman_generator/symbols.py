@@ -1,11 +1,12 @@
 from enum import Enum, auto
 from typing import NamedTuple
 from typing import override
-from dimensions import Dimensions
-from latex import measure_latex_dimensions
 from typing import final, Final
 from abc import ABC, abstractmethod
 from typing import Optional
+
+from nassi_shneiderman_generator.dimensions import Dimensions
+from nassi_shneiderman_generator.latex import measure_latex_dimensions
 
 _TEXT_MARGIN = 4.0
 
@@ -220,7 +221,11 @@ class _HorizontalSymbolBlock(Symbol):
     @property
     def required_size(self) -> tuple[float, float]:
         required_width: Final = sum(
-            max(constraint.symbol.required_size[0], constraint.min_width, self._min_symbol_width)
+            max(
+                constraint.symbol.required_size[0],
+                constraint.min_width,
+                self._min_symbol_width,
+            )
             for constraint in self._symbol_constraints
         )
         return required_width, self._max_symbol_height

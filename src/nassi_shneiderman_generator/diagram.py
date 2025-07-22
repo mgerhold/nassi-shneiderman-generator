@@ -1,6 +1,6 @@
 from typing import final
 
-from symbols import Symbol
+from nassi_shneiderman_generator.symbols import Symbol
 
 
 @final
