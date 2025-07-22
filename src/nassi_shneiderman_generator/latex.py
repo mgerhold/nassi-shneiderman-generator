@@ -63,52 +63,43 @@ def _show_image(path: str) -> None:
     cv2.destroyAllWindows()
 
 
+def render_latex_to_pdf(latex_body: str, target_filepath: Path) -> None:
+    full_tex = (
+        r"""\documentclass[tikz]{standalone}
+\usepackage{tikz}
+\begin{document}
+"""
+        + latex_body
+        + r"""
+    \end{document}
+    """
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir).resolve()
+        tex_file = tmp_path / "doc.tex"
+        tex_file.parent.mkdir(parents=True, exist_ok=True)
+        tex_file.write_text(full_tex, encoding="utf-8")
+
+        subprocess.run(
+            ["pdflatex", "-interaction=nonstopmode", str(tex_file)],
+            cwd=tmp_path,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        pdf_file = tmp_path / "doc.pdf"
+        pdf_file.rename(target_filepath)
+
+
 def render_latex_and_show(latex_body: str):
     # Create temp directory
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir).resolve()
-        tex_file = tmp_path / "doc.tex"
         pdf_file = tmp_path / "doc.pdf"
         png_file = tmp_path / "doc.png"  # output of pdftoppm
 
-        # LaTeX document template
-        full_tex = (
-            r"""\documentclass[tikz]{standalone}
-\usepackage{tikz}
-\begin{document}
-"""
-            + latex_body
-            + r"""
-\end{document}
-"""
-        )
-
-        # Write LaTeX to file
-        tex_file.write_text(full_tex, encoding="utf-8")
-
-        # Run pdflatex
-        try:
-            subprocess.run(
-                ["pdflatex", "-interaction=nonstopmode", str(tex_file)],
-                cwd=tmp_path,
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except subprocess.CalledProcessError:
-            print("LaTeX compilation failed.")
-            return
-
-        # try:
-        #     subprocess.run(
-        #         ["pdfcrop", str(pdf_file), str(pdf_file)],
-        #         check=True,
-        #         stdout=subprocess.DEVNULL,
-        #         stderr=subprocess.DEVNULL,
-        #     )
-        # except subprocess.CalledProcessError:
-        #     print("PDF cropping failed.")
-        #     return
+        render_latex_to_pdf(latex_body, pdf_file)
 
         # Convert PDF to PNG
         try:

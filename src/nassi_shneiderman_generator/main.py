@@ -1,3 +1,4 @@
+from nassi_shneiderman_generator.latex import render_latex_to_pdf
 import argparse
 import sys
 from pathlib import Path
@@ -35,8 +36,13 @@ def find_and_evaluate_diagrams(folder_path: str) -> None:
                     f"'diagram' object in '{py_file.name}' does not have an 'emit' method"
                 )
 
-            print(diagram.emit())
-            print()
+            new_filename = py_file.with_suffix(".tex")
+            tex_body = diagram.emit()
+            new_filename.write_text(tex_body, encoding="utf-8")
+            print(f"Processed '{py_file.name}' and saved to '{new_filename}'")
+            pdf_filename = new_filename.with_suffix(".pdf")
+            render_latex_to_pdf(tex_body, pdf_filename)
+            print(f"Rendered PDF for '{py_file.name}' to '{pdf_filename}'")
         except Exception as e:
             print(f"Error processing '{py_file.name}': {e}", file=sys.stderr)
             continue
