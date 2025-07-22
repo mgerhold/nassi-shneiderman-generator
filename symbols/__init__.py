@@ -165,7 +165,7 @@ class Branch(NamedTuple):
 
 
 class MultipleExclusiveSelective(Symbol):
-    def __init__(self, common_condition_part: str, branches: list[Branch])  -> None:
+    def __init__(self, common_condition_part: str, branches: list[Branch]) -> None:
         self._common_condition_part = common_condition_part
         self._branches = branches
 
@@ -397,3 +397,38 @@ class ContinuousIteration(Iteration):
     @override
     def _block_alignment(self) -> BlockAlignment:
         return BlockAlignment.CENTER
+
+
+@final
+class Termination(Symbol):
+    def __init__(self, text: str) -> None:
+        self._text = text
+
+    @property
+    def text(self) -> str:
+        return self._text
+
+    @override
+    def emit(self, position: tuple[float, float], size: tuple[float, float]) -> str:
+        text_dimensions: Final = measure_latex_dimensions(self._text)
+        x: Final = position[0] + self._margin
+        y: Final = position[1] - size[1] / 2.0 + text_dimensions.height / 2.0
+        return (
+            Imperative("").emit(position, size)
+            + _text((x, y), self._text)
+            + _line(position[0] + self._margin, position[1], position[0], position[1] - size[1] / 2.0)
+            + _line(position[0], position[1] - size[1] / 2.0, position[0] + self._margin, position[1] - size[1])
+        )
+
+    @override
+    @property
+    def required_size(self) -> tuple[float, float]:
+        size: Final = Imperative(self._text).required_size
+        return (
+            size[0] + self._margin,
+            size[1],
+        )
+
+    @property
+    def _margin(self) -> float:
+        return _margin_from_text("")

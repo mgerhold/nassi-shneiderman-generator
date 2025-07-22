@@ -1,3 +1,4 @@
+from symbols import Termination
 from symbols import ContinuousIteration
 from symbols import PostTestedIteration
 from symbols import PreTestedIteration
@@ -75,6 +76,7 @@ def main():
                             elements=[
                                 Imperative(r"Ausgabe: \texttt{n}"),
                                 Imperative(r"$\texttt{n} := \texttt{n} + 1$"),
+                                Termination("Raus hier!"),
                             ]
                         ),
                     )
