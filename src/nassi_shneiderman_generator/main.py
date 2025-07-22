@@ -4,6 +4,25 @@ import sys
 from pathlib import Path
 
 
+def python_file_to_latex(py_file: Path) -> str:
+    namespace = {}
+
+    with open(py_file, "r", encoding="utf-8") as f:
+        exec(f.read(), namespace)
+
+    if "diagram" not in namespace:
+        raise AttributeError(f"No 'diagram' object found in '{py_file.name}'")
+
+    diagram = namespace["diagram"]
+
+    if not hasattr(diagram, "emit"):
+        raise AttributeError(
+            f"'diagram' object in '{py_file.name}' does not have an 'emit' method"
+        )
+
+    return diagram.emit()
+
+
 def find_and_evaluate_diagrams(folder_path: Path) -> None:
     if not folder_path.exists():
         raise FileNotFoundError(f"Error '{folder_path}' does not exist")
@@ -31,22 +50,8 @@ def find_and_evaluate_diagrams(folder_path: Path) -> None:
                 # Skipping file (no changes detected)
                 continue
 
-            namespace = {}
+            tex_body = python_file_to_latex(py_file)
 
-            with open(py_file, "r", encoding="utf-8") as f:
-                exec(f.read(), namespace)
-
-            if "diagram" not in namespace:
-                raise AttributeError(f"No 'diagram' object found in '{py_file.name}'")
-
-            diagram = namespace["diagram"]
-
-            if not hasattr(diagram, "emit"):
-                raise AttributeError(
-                    f"'diagram' object in '{py_file.name}' does not have an 'emit' method"
-                )
-
-            tex_body = diagram.emit()
             tex_file.write_text(tex_body, encoding="utf-8")
             print(f"Processed '{py_file.name}' and saved to '{tex_file.name}'")
 
