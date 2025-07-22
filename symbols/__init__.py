@@ -416,8 +416,18 @@ class Termination(Symbol):
         return (
             Imperative("").emit(position, size)
             + _text((x, y), self._text)
-            + _line(position[0] + self._margin, position[1], position[0], position[1] - size[1] / 2.0)
-            + _line(position[0], position[1] - size[1] / 2.0, position[0] + self._margin, position[1] - size[1])
+            + _line(
+                position[0] + self._margin,
+                position[1],
+                position[0],
+                position[1] - size[1] / 2.0,
+            )
+            + _line(
+                position[0],
+                position[1] - size[1] / 2.0,
+                position[0] + self._margin,
+                position[1] - size[1],
+            )
         )
 
     @override
@@ -428,6 +438,73 @@ class Termination(Symbol):
             size[0] + self._margin,
             size[1],
         )
+
+    @property
+    def _margin(self) -> float:
+        return _margin_from_text("")
+
+
+@final
+class Parallel(Symbol):
+    def __init__(self, elements: list[Symbol]) -> None:
+        self._elements = elements
+
+    @property
+    def elements(self) -> list[Symbol]:
+        return self._elements
+
+    @override
+    def emit(self, position: tuple[float, float], size: tuple[float, float]) -> str:
+        output = Imperative("").emit(position, (size[0], self._margin))
+        output += Imperative("").emit(
+            (position[0], position[1] - size[1] + self._margin),
+            (size[0], self._margin),
+        )
+        output += _line(
+            position[0],
+            position[1] - self._margin,
+            position[0] + self._margin,
+            position[1],
+        )
+        output += _line(
+            position[0],
+            position[1] - size[1] + self._margin,
+            position[0] + self._margin,
+            position[1] - size[1],
+        )
+        output += _line(
+            position[0] + size[0] - self._margin,
+            position[1],
+            position[0] + size[0],
+            position[1] - self._margin,
+        )
+        output += _line(
+            position[0] + size[0] - self._margin,
+            position[1] - size[1],
+            position[0] + size[0],
+            position[1] - size[1] + self._margin,
+        )
+        element_width: Final = size[0] / len(self._elements)
+        element_height: Final = size[1] - 2.0 * self._margin
+        position = (position[0], position[1] - self._margin)
+        for element in self._elements:
+            output += element.emit(
+                (position[0], position[1]),
+                (element_width, element_height),
+            )
+            position = (position[0] + element_width, position[1])
+        return output
+
+    @override
+    @property
+    def required_size(self) -> tuple[float, float]:
+        max_width = 0.0
+        max_height = 0.0
+        for element in self._elements:
+            element_size = element.required_size
+            max_width = max(max_width, element_size[0])
+            max_height = max(max_height, element_size[1])
+        return max_width * len(self.elements), max_height + 2.0 * self._margin
 
     @property
     def _margin(self) -> float:

@@ -1,3 +1,4 @@
+from symbols import Parallel
 from symbols import Termination
 from symbols import ContinuousIteration
 from symbols import PostTestedIteration
@@ -67,7 +68,7 @@ def main():
                                 Imperative(r"$\texttt{n} := \texttt{n} + 1$"),
                             ]
                         ),
-                    )
+                    ),
                 ),
                 Branch(
                     condition="Huh?",
@@ -77,9 +78,16 @@ def main():
                                 Imperative(r"Ausgabe: \texttt{n}"),
                                 Imperative(r"$\texttt{n} := \texttt{n} + 1$"),
                                 Termination("Raus hier!"),
+                                Parallel(
+                                    elements=[
+                                        Imperative("a"),
+                                        Imperative("b"),
+                                        Imperative("c"),
+                                    ]
+                                )
                             ]
                         ),
-                    )
+                    ),
                 ),
                 Branch(
                     condition="Nein",
