@@ -469,12 +469,12 @@ class Iteration(Symbol):
     @property
     def required_size(self) -> tuple[float, float]:
         margin: Final = _margin_from_text(self._condition)
-        inner_size: Final = self._body.required_size
+        inner_size: Final = self.body.required_size
         return (
             inner_size[0] + margin,
             inner_size[1] + margin * 2.0
             if self._block_alignment() == BlockAlignment.CENTER
-            else 1.0,
+            else inner_size[1] + margin,
         )
 
 

@@ -11,3 +11,4 @@ wheels/
 .idea/
 test/diagrams/*.pdf
 test/diagrams/*.tex
+!test/diagrams/*.expected.tex
