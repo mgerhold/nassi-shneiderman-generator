@@ -1,3 +1,6 @@
+from symbols import ContinuousIteration
+from symbols import PostTestedIteration
+from symbols import PreTestedIteration
 from symbols import MonadicSelective, DyadicSelective
 from typing import Final
 
@@ -39,15 +42,42 @@ def main():
                             condition="Schlecht",
                             inner=Imperative("Ciao."),
                         ),
-                    )
+                    ),
                 ),
                 Branch(
                     condition="Nein",
-                    inner=Imperative("Nö :("),
+                    inner=PreTestedIteration(
+                        condition=r"$\texttt{n} < 10$",
+                        body=Serial(
+                            elements=[
+                                Imperative(r"Ausgabe: \texttt{n}"),
+                                Imperative(r"$\texttt{n} := \texttt{n} + 1$"),
+                            ]
+                        ),
+                    ),
                 ),
                 Branch(
                     condition="Bla",
-                    inner=Imperative("Dann eben doch."),
+                    inner=PostTestedIteration(
+                        condition=r"$\texttt{n} < 10$",
+                        body=Serial(
+                            elements=[
+                                Imperative(r"Ausgabe: \texttt{n}"),
+                                Imperative(r"$\texttt{n} := \texttt{n} + 1$"),
+                            ]
+                        ),
+                    )
+                ),
+                Branch(
+                    condition="Huh?",
+                    inner=ContinuousIteration(
+                        body=Serial(
+                            elements=[
+                                Imperative(r"Ausgabe: \texttt{n}"),
+                                Imperative(r"$\texttt{n} := \texttt{n} + 1$"),
+                            ]
+                        ),
+                    )
                 ),
                 Branch(
                     condition="Nein",

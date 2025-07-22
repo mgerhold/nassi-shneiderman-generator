@@ -1,3 +1,4 @@
+from enum import Enum, auto
 from typing import NamedTuple
 from typing import override
 from dimensions import Dimensions
@@ -8,8 +9,10 @@ from typing import Optional
 
 _TEXT_MARGIN = 4.0
 
+
 def _lerp(start: float, end: float, t: float) -> float:
     return start + (end - start) * t
+
 
 def _options(color: Optional[str]) -> str:
     return "" if color is None else f"[{color}]"
@@ -30,6 +33,11 @@ def _text(position: tuple[float, float], text: str, color: Optional[str] = None)
     return rf"\node{_options(color)} at ({x}pt, {y}pt) {{{text}}};" + "\n"
 
 
+def _margin_from_text(text: str) -> float:
+    text_size: Final = measure_latex_dimensions(text if text else "Placeholder")
+    return text_size.total_height + _TEXT_MARGIN * 2.0
+
+
 class Symbol(ABC):
     @abstractmethod
     def emit(self, position: tuple[float, float], size: tuple[float, float]) -> str:
@@ -43,7 +51,7 @@ class Symbol(ABC):
 
 @final
 class Imperative(Symbol):
-    def __init__(self, text: str, color: Optional[str] = None):
+    def __init__(self, text: str, color: Optional[str] = None) -> None:
         self._text = text
         self._color = color
 
@@ -79,7 +87,7 @@ class Imperative(Symbol):
 
 @final
 class Block(Symbol):
-    def __init__(self, text: str, inner: Symbol):
+    def __init__(self, text: str, inner: Symbol) -> None:
         self._text = text
         self._inner = inner
 
@@ -91,37 +99,34 @@ class Block(Symbol):
     def inner(self) -> Symbol:
         return self._inner
 
-    @property
-    def _margin(self) -> float:
-        text_size: Final = measure_latex_dimensions(self._text)
-        return text_size.total_height + _TEXT_MARGIN * 2.0
-
     @override
     def emit(self, position: tuple[float, float], size: tuple[float, float]) -> str:
+        margin: Final = _margin_from_text(self._text)
         return (
             Imperative("").emit(position, size)
             + _text(
                 (position[0] + _TEXT_MARGIN, position[1] - _TEXT_MARGIN), self._text
             )
             + self._inner.emit(
-                (position[0] + self._margin, position[1] - self._margin),
-                (size[0] - 2.0 * self._margin, size[1] - 2.0 * self._margin),
+                (position[0] + margin, position[1] - margin),
+                (size[0] - 2.0 * margin, size[1] - 2.0 * margin),
             )
         )
 
     @override
     @property
     def required_size(self) -> tuple[float, float]:
+        margin: Final = _margin_from_text(self._text)
         inner_size: Final = self._inner.required_size
         return (
-            inner_size[0] + 2.0 * self._margin,
-            inner_size[1] + 2.0 * self._margin,
+            inner_size[0] + 2.0 * margin,
+            inner_size[1] + 2.0 * margin,
         )
 
 
 @final
 class Serial(Symbol):
-    def __init__(self, elements: list[Symbol]):
+    def __init__(self, elements: list[Symbol]) -> None:
         self._elements = elements
 
     @property
@@ -160,7 +165,7 @@ class Branch(NamedTuple):
 
 
 class MultipleExclusiveSelective(Symbol):
-    def __init__(self, common_condition_part: str, branches: list[Branch]):
+    def __init__(self, common_condition_part: str, branches: list[Branch])  -> None:
         self._common_condition_part = common_condition_part
         self._branches = branches
 
@@ -205,13 +210,18 @@ class MultipleExclusiveSelective(Symbol):
             if len(self.branches) == 2:
                 x = x_min
             else:
-                x_centered = position[0] + (i + 0.5) * branch_width - text_dimensions.width / 2.0
+                x_centered = (
+                    position[0] + (i + 0.5) * branch_width - text_dimensions.width / 2.0
+                )
                 t = i / max(len(self.branches) - 2, 1)
                 x = _lerp(x_centered, x_min, t)
             result += _text(
                 (
                     x,
-                    position[1] - self._header_height + _TEXT_MARGIN + text_dimensions.height,
+                    position[1]
+                    - self._header_height
+                    + _TEXT_MARGIN
+                    + text_dimensions.height,
                 ),
                 text,
             )
@@ -229,7 +239,9 @@ class MultipleExclusiveSelective(Symbol):
             text,
         )
 
-        m_x: Final = (position[0] + size[0] / 2.0 + position[0] + size[0] / 2.0 + x2) / 3.0
+        m_x: Final = (
+            position[0] + size[0] / 2.0 + position[0] + size[0] / 2.0 + x2
+        ) / 3.0
         m_y: Final = (position[1] + position[1] + y2) / 3.0
         text = self.common_condition_part
         text_dimensions = measure_latex_dimensions(text)
@@ -279,11 +291,109 @@ class MultipleExclusiveSelective(Symbol):
 
 
 class DyadicSelective(MultipleExclusiveSelective):
+    @override
     def __init__(self, common_condition_part: str, then: Branch, else_: Branch) -> None:
         super().__init__(common_condition_part, [then, else_])
 
 
 @final
 class MonadicSelective(DyadicSelective):
+    @override
     def __init__(self, common_condition_part: str, then: Branch) -> None:
         super().__init__(common_condition_part, then, Branch("", Imperative("")))
+
+
+@final
+class BlockAlignment(Enum):
+    TOP = auto()
+    CENTER = auto()
+    BOTTOM = auto()
+
+
+class Iteration(Symbol):
+    def __init__(self, condition: str, body: Symbol) -> None:
+        self._condition = condition
+        self._body = body
+
+    @abstractmethod
+    def _block_alignment(self) -> BlockAlignment:
+        pass
+
+    @property
+    def condition(self) -> str:
+        return self._condition
+
+    @property
+    def body(self) -> Symbol:
+        return self._body
+
+    @override
+    def emit(self, position: tuple[float, float], size: tuple[float, float]) -> str:
+        margin: Final = _margin_from_text(self._condition)
+        inner_height: Final = (
+            size[1] - 2.0 * margin
+            if self._block_alignment() == BlockAlignment.CENTER
+            else size[1] - margin
+        )
+        inner_position_y: Final = (
+            position[1]
+            if self._block_alignment() == BlockAlignment.TOP
+            else position[1] - margin
+        )
+
+        if self._block_alignment() == BlockAlignment.TOP:
+            text_dimensions: Final = measure_latex_dimensions(self._condition)
+            text_position_y = (
+                position[1] - size[1] + text_dimensions.height + _TEXT_MARGIN
+            )
+        else:
+            text_position_y = position[1] - _TEXT_MARGIN
+
+        return (
+            Imperative("").emit(position, size)
+            + _text(
+                (position[0] + _TEXT_MARGIN, text_position_y),
+                self._condition,
+            )
+            + self._body.emit(
+                (position[0] + margin, inner_position_y),
+                (size[0] - margin, inner_height),
+            )
+        )
+
+    @override
+    @property
+    def required_size(self) -> tuple[float, float]:
+        margin: Final = _margin_from_text(self._condition)
+        inner_size: Final = self._body.required_size
+        return (
+            inner_size[0] + margin,
+            inner_size[1] + margin * 2.0
+            if self._block_alignment() == BlockAlignment.CENTER
+            else 1.0,
+        )
+
+
+@final
+class PreTestedIteration(Iteration):
+    @override
+    def _block_alignment(self) -> BlockAlignment:
+        return BlockAlignment.BOTTOM
+
+
+@final
+class PostTestedIteration(Iteration):
+    @override
+    def _block_alignment(self) -> BlockAlignment:
+        return BlockAlignment.TOP
+
+
+@final
+class ContinuousIteration(Iteration):
+    @override
+    def __init__(self, body: Symbol) -> None:
+        super().__init__("", body)
+
+    @override
+    def _block_alignment(self) -> BlockAlignment:
+        return BlockAlignment.CENTER
