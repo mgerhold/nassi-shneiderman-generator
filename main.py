@@ -12,18 +12,56 @@ from symbols import Imperative, Serial, Block, MultipleExclusiveSelective, Branc
 
 
 def main():
+    # diagram: Final = Diagram(
+    #     DyadicSelective(
+    #         r"$\texttt{n} > 0?$",
+    #         Branch("Ja", Imperative(r"Ausgabe: $\texttt{n} > 0$")),
+    #         Branch(
+    #             "Nein",
+    #             DyadicSelective(
+    #                 r"$\texttt{n} > 1?$",
+    #                 Branch("Ja", Imperative(r"Ausgabe: $\texttt{n} > 1$")),
+    #                 Branch(
+    #                     "Nein",
+    #                     DyadicSelective(
+    #                         r"$\texttt{n} > 2?$",
+    #                         Branch("Ja", Imperative(r"Ausgabe: $\texttt{n} > 2$")),
+    #                         Branch(
+    #                             "Nein",
+    #                             DyadicSelective(
+    #                                 r"$\texttt{n} > 3?$",
+    #                                 Branch("Ja", Imperative(r"Ausgabe: $\texttt{n} > 3$")),
+    #                                 Branch(
+    #                                     "Nein",
+    #                                     DyadicSelective(
+    #                                         r"$\texttt{n} > 4?$",
+    #                                         Branch("Ja", Imperative(r"Ausgabe: $\texttt{n} > 4$")),
+    #                                         Branch(
+    #                                             "Nein",
+    #                                             Imperative(r"Ausgabe: $\texttt{n} \leq 4$"),
+    #                                         ),
+    #                                     )
+    #                                 ),
+    #                             )
+    #                         ),
+    #                     )
+    #                 )
+    #             )
+    #         )
+    #     )
+    # )
     diagram: Final = Diagram(
         MultipleExclusiveSelective(
-            common_condition_part="Weiß der Geier?",
-            branches=[
+            "Weiß der Geier?",
+            [
                 Branch(
-                    condition="Ja",
-                    inner=MonadicSelective(
-                        common_condition_part="War geil?",
-                        then=Branch(
-                            condition="Ja",
-                            inner=Serial(
-                                elements=[
+                    "Ja",
+                    MonadicSelective(
+                        "War geil?",
+                        Branch(
+                            "Ja",
+                            Serial(
+                                [
                                     Imperative("Dann!"),
                                     Imperative("Auch."),
                                     Imperative("Und!"),
@@ -33,25 +71,25 @@ def main():
                     ),
                 ),
                 Branch(
-                    condition="Vielleicht",
-                    inner=DyadicSelective(
-                        common_condition_part="Wie geht's?",
-                        then=Branch(
-                            condition="Gut",
-                            inner=Imperative("Okay."),
+                    "Vielleicht",
+                    DyadicSelective(
+                        "Wie geht's?",
+                        Branch(
+                            "Gut",
+                            Imperative("Okay."),
                         ),
-                        else_=Branch(
-                            condition="Schlecht",
-                            inner=Imperative("Ciao."),
+                        Branch(
+                            "Schlecht",
+                            Imperative("Ciao."),
                         ),
                     ),
                 ),
                 Branch(
-                    condition="Nein",
-                    inner=PreTestedIteration(
-                        condition=r"$\texttt{n} < 10$",
-                        body=Serial(
-                            elements=[
+                    "Nein",
+                    PreTestedIteration(
+                        r"$\texttt{n} < 10$",
+                        Serial(
+                            [
                                 Imperative(r"Ausgabe: \texttt{n}"),
                                 Imperative(r"$\texttt{n} := \texttt{n} + 1$"),
                             ]
@@ -59,11 +97,11 @@ def main():
                     ),
                 ),
                 Branch(
-                    condition="Bla",
-                    inner=PostTestedIteration(
-                        condition=r"$\texttt{n} < 10$",
-                        body=Serial(
-                            elements=[
+                    "Bla",
+                    PostTestedIteration(
+                        r"$\texttt{n} < 10$",
+                        Serial(
+                            [
                                 Imperative(r"Ausgabe: \texttt{n}"),
                                 Imperative(r"$\texttt{n} := \texttt{n} + 1$"),
                             ]
@@ -71,15 +109,15 @@ def main():
                     ),
                 ),
                 Branch(
-                    condition="Huh?",
-                    inner=ContinuousIteration(
-                        body=Serial(
-                            elements=[
+                    "Huh?",
+                    ContinuousIteration(
+                        Serial(
+                            [
                                 Imperative(r"Ausgabe: \texttt{n}"),
                                 Imperative(r"$\texttt{n} := \texttt{n} + 1$"),
                                 Termination("Raus hier!"),
                                 Parallel(
-                                    elements=[
+                                    [
                                         Imperative("a"),
                                         Imperative("b"),
                                         Imperative("c"),
@@ -90,11 +128,11 @@ def main():
                     ),
                 ),
                 Branch(
-                    condition="Nein",
-                    inner=Block(
-                        text="Mein Block",
-                        inner=Serial(
-                            elements=[
+                    "Nein",
+                    Block(
+                        "Mein Block",
+                        Serial(
+                            [
                                 Imperative(r"Eingabe: \texttt{n}"),
                                 Imperative(r"$\texttt{n} := \texttt{n} + 1$"),
                                 Imperative(r"Was geht ab? $\frac{1}{2}$"),

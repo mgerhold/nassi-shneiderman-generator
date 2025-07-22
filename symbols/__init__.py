@@ -165,6 +165,8 @@ class Branch(NamedTuple):
 
 
 class MultipleExclusiveSelective(Symbol):
+    _MIN_BRANCH_WIDTH = 28.346  # 1 cm in points
+
     def __init__(self, common_condition_part: str, branches: list[Branch]) -> None:
         self._common_condition_part = common_condition_part
         self._branches = branches
@@ -177,16 +179,32 @@ class MultipleExclusiveSelective(Symbol):
     def branches(self) -> list[Branch]:
         return self._branches
 
+    def _get_x_of_branch(self, position: tuple[float, float], index: int) -> float:
+        common_condition_width: Final = measure_latex_dimensions(self._common_condition_part).width
+        min_branch_width: Final = common_condition_width / len(self.branches) * 2.0
+        x = position[0]
+        for i, branch in enumerate(self.branches):
+            if i == index:
+                return x
+            x += max(
+                branch.inner.required_size[0],
+                MultipleExclusiveSelective._MIN_BRANCH_WIDTH,
+                measure_latex_dimensions(branch.condition).width * 2.0,
+                min_branch_width,
+            )
+        return x
+
     @override
     def emit(self, position: tuple[float, float], size: tuple[float, float]) -> str:
         result = Imperative("").emit(position, (size[0], self._header_height))
-        branch_width: Final = size[0] / len(self.branches)
+        # branch_width: Final = size[0] / len(self.branches)
         branch_height: Final = size[1] - self._header_height
 
         # Diagonal line from top left to bottom "almost" right.
         x1: Final = position[0]
         y1: Final = position[1]
-        x2: Final = position[0] + (len(self.branches) - 1) * branch_width
+        # x2: Final = position[0] + (len(self.branches) - 1) * branch_width
+        x2: Final = self._get_x_of_branch(position, len(self.branches) - 1)
         y2: Final = position[1] - self._header_height
 
         def linear_function(x: float) -> float:
@@ -199,22 +217,26 @@ class MultipleExclusiveSelective(Symbol):
         result += _line(x1, y1, x2, y2)
         result += _line(x2, y2, x3, y3)
 
+        # Vertical lines in the header.
         for i in range(len(self.branches) - 2):
-            x = position[0] + (i + 1) * branch_width
+            x = position[0] + self._get_x_of_branch(position, i + 1)
             result += _line(x, linear_function(x), x, position[1] - self._header_height)
 
+        # Condition texts in the header.
         for i in range(len(self.branches) - 1):
             text = self.branches[i].condition
             text_dimensions = measure_latex_dimensions(text)
-            x_min = position[0] + i * branch_width + _TEXT_MARGIN
+            x_min = self._get_x_of_branch(position, i) + _TEXT_MARGIN
             if len(self.branches) == 2:
                 x = x_min
             else:
-                x_centered = (
-                    position[0] + (i + 0.5) * branch_width - text_dimensions.width / 2.0
-                )
+                x_center_of_branch = (
+                    self._get_x_of_branch(position, i)
+                    + self._get_x_of_branch(position, i + 1)
+                ) / 2.0
+                x_center_of_text = x_center_of_branch - text_dimensions.width / 2.0
                 t = i / max(len(self.branches) - 2, 1)
-                x = _lerp(x_centered, x_min, t)
+                x = _lerp(x_center_of_text, x_min, t)
             result += _text(
                 (
                     x,
@@ -226,6 +248,7 @@ class MultipleExclusiveSelective(Symbol):
                 text,
             )
 
+        # Rightmost condition text.
         text = self.branches[-1].condition
         text_dimensions = measure_latex_dimensions(text)
         result += _text(
@@ -239,6 +262,7 @@ class MultipleExclusiveSelective(Symbol):
             text,
         )
 
+        # Common condition part text.
         m_x: Final = (
             position[0] + size[0] / 2.0 + position[0] + size[0] / 2.0 + x2
         ) / 3.0
@@ -253,10 +277,14 @@ class MultipleExclusiveSelective(Symbol):
             text,
         )
 
-        position = (position[0], position[1] - self._header_height)
-        for branch in self.branches:
-            result += branch.inner.emit(position, (branch_width, branch_height))
-            position = (position[0] + branch_width, position[1])
+        # Emit branches.
+        for i, branch in enumerate(self.branches):
+            current_position = (
+                self._get_x_of_branch(position, i),
+                position[1] - self._header_height,
+            )
+            branch_width = self._get_x_of_branch(position, i + 1) - current_position[0]
+            result += branch.inner.emit(current_position, (branch_width, branch_height))
         return result
 
     @override
@@ -285,9 +313,7 @@ class MultipleExclusiveSelective(Symbol):
 
     @property
     def _total_width(self) -> float:
-        return len(self.branches) * max(
-            condition.inner.required_size[0] for condition in self.branches
-        )
+        return self._get_x_of_branch((0.0, 0.0), len(self.branches))
 
 
 class DyadicSelective(MultipleExclusiveSelective):
