@@ -19,18 +19,21 @@ def _options(color: Optional[str]) -> str:
 
 
 def _line(x1: float, y1: float, x2: float, y2: float) -> str:
-    return rf"\draw ({x1}pt, {y1}pt) -- ({x2}pt, {y2}pt);" + "\n"
+    return rf"    \draw ({x1}pt, {y1}pt) -- ({x2}pt, {y2}pt);" + "\n"
 
 
 def _rectangle(x1: float, y1: float, x2: float, y2: float, color: Optional[str]) -> str:
-    return rf"\draw{_options(color)} ({x1}pt,{y1}pt) rectangle ({x2}pt, {y2}pt);" + "\n"
+    return (
+        rf"    \draw{_options(color)} ({x1}pt,{y1}pt) rectangle ({x2}pt, {y2}pt);"
+        + "\n"
+    )
 
 
 def _text(position: tuple[float, float], text: str, color: Optional[str] = None) -> str:
     size: Final = measure_latex_dimensions(text)
     x: Final = position[0] + size.width / 2.0
     y: Final = position[1] - size.height / 2.0 - size.depth / 2.0
-    return rf"\node{_options(color)} at ({x}pt, {y}pt) {{{text}}};" + "\n"
+    return rf"    \node{_options(color)} at ({x}pt, {y}pt) {{{text}}};" + "\n"
 
 
 def _margin_from_text(text: str) -> float:
@@ -159,6 +162,78 @@ class Serial(Symbol):
 
 
 @final
+class ConstrainedSymbol(NamedTuple):
+    symbol: Symbol
+    min_width: float
+
+
+@final
+class _HorizontalSymbolBlock(Symbol):
+    def __init__(
+        self,
+        symbol_constraints: list[ConstrainedSymbol],
+        min_symbol_width: float,
+    ) -> None:
+        self._symbol_constraints = symbol_constraints
+        self._min_symbol_width = min_symbol_width
+
+    def get_x_of_symbol(
+        self,
+        base_position: tuple[float, float],
+        size: tuple[float, float],
+        index: int,
+    ) -> float:
+        additional_required_width_per_symbol: Final = max(
+            0.0,
+            (size[0] - self.required_size[0]) / len(self._symbol_constraints),
+        )
+        x = base_position[0]
+        for i, symbol_constraint in enumerate(self._symbol_constraints):
+            if i == index:
+                return x
+            x += max(
+                symbol_constraint.symbol.required_size[0]
+                + additional_required_width_per_symbol,
+                symbol_constraint.min_width,
+                self._min_symbol_width,
+            )
+        return x
+
+    @override
+    def emit(self, position: tuple[float, float], size: tuple[float, float]) -> str:
+        result = ""
+        for i, symbol_constraint in enumerate(self._symbol_constraints):
+            current_position = (
+                self.get_x_of_symbol(position, size, i),
+                position[1],
+            )
+            branch_width = (
+                self.get_x_of_symbol(position, size, i + 1) - current_position[0]
+            )
+            result += symbol_constraint.symbol.emit(
+                current_position,
+                (branch_width, size[1]),
+            )
+        return result
+
+    @override
+    @property
+    def required_size(self) -> tuple[float, float]:
+        required_width: Final = sum(
+            max(constraint.symbol.required_size[0], constraint.min_width, self._min_symbol_width)
+            for constraint in self._symbol_constraints
+        )
+        return required_width, self._max_symbol_height
+
+    @property
+    def _max_symbol_height(self) -> float:
+        return max(
+            symbol_constraint.symbol.required_size[1]
+            for symbol_constraint in self._symbol_constraints
+        )
+
+
+@final
 class Branch(NamedTuple):
     condition: str
     inner: Symbol
@@ -179,32 +254,17 @@ class MultipleExclusiveSelective(Symbol):
     def branches(self) -> list[Branch]:
         return self._branches
 
-    def _get_x_of_branch(self, position: tuple[float, float], index: int) -> float:
-        common_condition_width: Final = measure_latex_dimensions(self._common_condition_part).width
-        min_branch_width: Final = common_condition_width / len(self.branches) * 2.0
-        x = position[0]
-        for i, branch in enumerate(self.branches):
-            if i == index:
-                return x
-            x += max(
-                branch.inner.required_size[0],
-                MultipleExclusiveSelective._MIN_BRANCH_WIDTH,
-                measure_latex_dimensions(branch.condition).width * 2.0,
-                min_branch_width,
-            )
-        return x
-
     @override
     def emit(self, position: tuple[float, float], size: tuple[float, float]) -> str:
+        # Rectangle around the header.
         result = Imperative("").emit(position, (size[0], self._header_height))
-        # branch_width: Final = size[0] / len(self.branches)
-        branch_height: Final = size[1] - self._header_height
+
+        body: Final = self._body
 
         # Diagonal line from top left to bottom "almost" right.
         x1: Final = position[0]
         y1: Final = position[1]
-        # x2: Final = position[0] + (len(self.branches) - 1) * branch_width
-        x2: Final = self._get_x_of_branch(position, len(self.branches) - 1)
+        x2: Final = body.get_x_of_symbol(position, size, len(self.branches) - 1)
         y2: Final = position[1] - self._header_height
 
         def linear_function(x: float) -> float:
@@ -219,20 +279,20 @@ class MultipleExclusiveSelective(Symbol):
 
         # Vertical lines in the header.
         for i in range(len(self.branches) - 2):
-            x = position[0] + self._get_x_of_branch(position, i + 1)
+            x = position[0] + body.get_x_of_symbol(position, size, i + 1)
             result += _line(x, linear_function(x), x, position[1] - self._header_height)
 
         # Condition texts in the header.
         for i in range(len(self.branches) - 1):
             text = self.branches[i].condition
             text_dimensions = measure_latex_dimensions(text)
-            x_min = self._get_x_of_branch(position, i) + _TEXT_MARGIN
+            x_min = body.get_x_of_symbol(position, size, i) + _TEXT_MARGIN
             if len(self.branches) == 2:
                 x = x_min
             else:
                 x_center_of_branch = (
-                    self._get_x_of_branch(position, i)
-                    + self._get_x_of_branch(position, i + 1)
+                    body.get_x_of_symbol(position, size, i)
+                    + body.get_x_of_symbol(position, size, i + 1)
                 ) / 2.0
                 x_center_of_text = x_center_of_branch - text_dimensions.width / 2.0
                 t = i / max(len(self.branches) - 2, 1)
@@ -278,19 +338,36 @@ class MultipleExclusiveSelective(Symbol):
         )
 
         # Emit branches.
-        for i, branch in enumerate(self.branches):
-            current_position = (
-                self._get_x_of_branch(position, i),
-                position[1] - self._header_height,
-            )
-            branch_width = self._get_x_of_branch(position, i + 1) - current_position[0]
-            result += branch.inner.emit(current_position, (branch_width, branch_height))
+        result += body.emit(
+            (position[0], position[1] - self._header_height),
+            (size[0], size[1] - self._header_height),
+        )
         return result
 
     @override
     @property
     def required_size(self) -> tuple[float, float]:
         return self._total_width, self._total_height
+
+    @property
+    def _body(self) -> _HorizontalSymbolBlock:
+        common_condition_width: Final = measure_latex_dimensions(
+            self._common_condition_part
+        ).width
+        min_branch_width: Final = common_condition_width / len(self.branches) * 2.0
+        return _HorizontalSymbolBlock(
+            [
+                ConstrainedSymbol(
+                    branch.inner,
+                    measure_latex_dimensions(branch.condition).width * 2.0,
+                )
+                for branch in self.branches
+            ],
+            max(
+                MultipleExclusiveSelective._MIN_BRANCH_WIDTH,
+                min_branch_width,
+            ),
+        )
 
     @property
     def _header_height(self) -> float:
@@ -304,16 +381,12 @@ class MultipleExclusiveSelective(Symbol):
         return len(self.branches) * (max_line_height + 2.0 * _TEXT_MARGIN)
 
     @property
-    def _body_height(self) -> float:
-        return max(condition.inner.required_size[1] for condition in self.branches)
-
-    @property
     def _total_height(self) -> float:
-        return self._header_height + self._body_height
+        return self._header_height + self._body.required_size[1]
 
     @property
     def _total_width(self) -> float:
-        return self._get_x_of_branch((0.0, 0.0), len(self.branches))
+        return self._body.get_x_of_symbol((0.0, 0.0), (0.0, 0.0), len(self.branches))
 
 
 class DyadicSelective(MultipleExclusiveSelective):
@@ -481,11 +554,14 @@ class Parallel(Symbol):
 
     @override
     def emit(self, position: tuple[float, float], size: tuple[float, float]) -> str:
+        # Upper and lower "banners".
         output = Imperative("").emit(position, (size[0], self._margin))
         output += Imperative("").emit(
             (position[0], position[1] - size[1] + self._margin),
             (size[0], self._margin),
         )
+
+        # Diagonal lines in all four corners.
         output += _line(
             position[0],
             position[1] - self._margin,
@@ -510,28 +586,26 @@ class Parallel(Symbol):
             position[0] + size[0],
             position[1] - size[1] + self._margin,
         )
-        element_width: Final = size[0] / len(self._elements)
-        element_height: Final = size[1] - 2.0 * self._margin
-        position = (position[0], position[1] - self._margin)
-        for element in self._elements:
-            output += element.emit(
-                (position[0], position[1]),
-                (element_width, element_height),
-            )
-            position = (position[0] + element_width, position[1])
+
+        output += self._body.emit(
+            (position[0], position[1] - self._margin),
+            (size[0], size[1] - 2.0 * self._margin),
+        )
         return output
 
     @override
     @property
     def required_size(self) -> tuple[float, float]:
-        max_width = 0.0
-        max_height = 0.0
-        for element in self._elements:
-            element_size = element.required_size
-            max_width = max(max_width, element_size[0])
-            max_height = max(max_height, element_size[1])
-        return max_width * len(self.elements), max_height + 2.0 * self._margin
+        body_size: Final = self._body.required_size
+        return body_size[0], body_size[1] + 2.0 * self._margin
 
     @property
     def _margin(self) -> float:
         return _margin_from_text("")
+
+    @property
+    def _body(self) -> _HorizontalSymbolBlock:
+        return _HorizontalSymbolBlock(
+            [ConstrainedSymbol(element, 0.0) for element in self._elements],
+            0.0,
+        )
