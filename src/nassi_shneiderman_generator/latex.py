@@ -11,8 +11,7 @@ from nassi_shneiderman_generator.dimensions import Dimensions
 
 @cache
 def measure_latex_dimensions(latex_code: str) -> Dimensions:
-    file_contents: Final = rf"""\documentclass{{article}}
-    \usepackage[margin=0pt,paperwidth=50cm,paperheight=50cm]{{geometry}}
+    file_contents: Final = rf"""\documentclass[class=scrbook,numbers=noenddot,openany,pdftex]{{standalone}}
     \usepackage{{calc}}
     \pagestyle{{empty}}
 
@@ -65,7 +64,7 @@ def _show_image(path: str) -> None:
 
 def render_latex_to_pdf(latex_body: str, target_filepath: Path) -> None:
     full_tex = (
-        r"""\documentclass[tikz]{standalone}
+        r"""\documentclass[class=scrbook,numbers=noenddot,openany,pdftex]{standalone}
 \usepackage{tikz}
 \begin{document}
 """
