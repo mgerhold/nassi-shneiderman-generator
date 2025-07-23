@@ -75,21 +75,22 @@ def render_latex_to_pdf(latex_body: str, target_filepath: Path) -> None:
     """
     )
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp_path = Path(tmpdir).resolve()
-        tex_file = tmp_path / "doc.tex"
-        tex_file.parent.mkdir(parents=True, exist_ok=True)
-        tex_file.write_text(full_tex, encoding="utf-8")
+    temp_tex_file: Final = target_filepath.with_suffix(".temp.tex").resolve()
+    temp_path = temp_tex_file.parent.resolve()
+    temp_tex_file.write_text(full_tex, encoding="utf-8")
 
-        subprocess.run(
-            ["pdflatex", "-interaction=nonstopmode", str(tex_file)],
-            cwd=tmp_path,
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        pdf_file = tmp_path / "doc.pdf"
-        pdf_file.rename(target_filepath)
+    subprocess.run(
+        ["pdflatex", "-interaction=nonstopmode", str(temp_tex_file)],
+        cwd=temp_path,
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    pdf_file = temp_tex_file.with_suffix(".pdf")
+    pdf_file.rename(target_filepath)
+    temp_tex_file.unlink(missing_ok=True)
+    temp_tex_file.with_suffix(".aux").unlink(missing_ok=True)
+    temp_tex_file.with_suffix(".log").unlink(missing_ok=True)
 
 
 def render_latex_and_show(latex_body: str):
