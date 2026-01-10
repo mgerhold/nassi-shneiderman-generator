@@ -154,7 +154,7 @@ class Serial(Symbol):
             output += element.emit(current_position, actual_element_size)
             current_position = (
                 current_position[0],
-                current_position[1] - actual_element_size[1]
+                current_position[1] - actual_element_size[1],
             )
         return output
 
@@ -201,11 +201,10 @@ class _HorizontalSymbolBlock(Symbol):
             if i == index:
                 return x
             x += max(
-                symbol_constraint.symbol.required_size[0]
-                + additional_required_width_per_symbol,
+                symbol_constraint.symbol.required_size[0],
                 symbol_constraint.min_width,
                 self._min_symbol_width,
-            )
+            ) + additional_required_width_per_symbol
         return x
 
     @override
